@@ -1,0 +1,80 @@
+version: '2'
+services:
+  kafka-a:
+    environment:
+      - KAFKA_BROKER_ID=1
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper-a:2181
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      - KAFKA_LISTENERS=EXTERNAL://kafka-a:9092,INTERNAL://kafka-a:9093
+      - KAFKA_ADVERTISED_LISTENERS=EXTERNAL://kafka-a:9092,INTERNAL://kafka-a:9093
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+      - KAFKA_INTER_BROKER_LISTENER_NAME=INTERNAL
+    image: confluentinc/cp-kafka:5.0.0-2
+    links:
+      - zookeeper-a
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+  zookeeper-a:
+    image: confluentinc/cp-zookeeper:5.0.0-2
+    environment:
+      - ZOOKEEPER_CLIENT_PORT=2181
+      - ZOOKEEPER_TICK_TIME=2000
+      - ZOOKEEPER_SASL_ENABLED=FALSE
+  kafka-b:
+    environment:
+      - KAFKA_BROKER_ID=1
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper-b:2181
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      - KAFKA_LISTENERS=EXTERNAL://kafka-b:9094,INTERNAL://kafka-b:9095
+      - KAFKA_ADVERTISED_LISTENERS=EXTERNAL://kafka-b:9094,INTERNAL://kafka-b:9095
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+      - KAFKA_INTER_BROKER_LISTENER_NAME=INTERNAL
+    image: confluentinc/cp-kafka:5.0.0-2
+    links:
+      - zookeeper-b
+    ports:
+      - "9094:9094"
+      - "9095:9095"
+  zookeeper-b:
+    image: confluentinc/cp-zookeeper:5.0.0-2
+    environment:
+      - ZOOKEEPER_CLIENT_PORT=2181
+      - ZOOKEEPER_TICK_TIME=2000
+      - ZOOKEEPER_SASL_ENABLED=FALSE
+  proxy:
+    image: maven:3.6.1-jdk-11
+    command: "mvn exec:java"
+    environment:
+      - PROXY_HOSTNAME=proxy
+      - PROXY_PORT=9090
+      - UPSTREAM_HOSTNAME=kafka-b
+      - UPSTREAM_PORT=9094
+    working_dir: /app
+    volumes:
+      - ./:/app
+    ports:
+      - "9090:9090"
+    links:
+      - kafka-a
+      - kafka-b
+#  mm-1:
+#    command: >
+#      bash -c "kafka-topics --create --zookeeper zookeeper-a:2181 --replication-factor 1 --partitions 1 --topic test-topic --if-not-exists
+#      && kafka-mirror-maker --consumer.config /config/consumer-a.properties --producer.config /config/producer-a.properties --whitelist test-topic --message.handler com.nytimes.pubp.mirror.ReplicationFilter"
+#    environment:
+#      - CLASSPATH=/jar/mirror-maker-0-SNAPSHOT.jar
+#    image: confluentinc/cp-kafka:5.0.0-2
+#    volumes:
+#      - ./target/mirror-maker-0-SNAPSHOT.jar:/jar/mirror-maker-0-SNAPSHOT.jar
+#      - ./config:/config
+#  mm-2:
+#    command: >
+#      bash -c "kafka-topics --create --zookeeper zookeeper-b:2181 --replication-factor 1 --partitions 1 --topic test-topic --if-not-exists
+#      && kafka-mirror-maker --consumer.config /config/consumer-b.properties --producer.config /config/producer-b.properties --whitelist test-topic --message.handler com.nytimes.pubp.mirror.ReplicationFilter"
+#    environment:
+#      - CLASSPATH=/jar/mirror-maker-0-SNAPSHOT.jar
+#    image: confluentinc/cp-kafka:5.0.0-2
+#    volumes:
+#      - ./target/mirror-maker-0-SNAPSHOT.jar:/jar/mirror-maker-0-SNAPSHOT.jar
+#      - ./config:/config
